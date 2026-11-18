@@ -57,17 +57,39 @@ out), set `PAWSWEEP_MOLE_DIR` or pass `-PawsweepMoleDir <folder>` when launching
 
 ## Releases
 
-1. Change `mac/VERSION`, commit, and push.
-2. Tag the commit `pawsweep-v<version>` and push the tag.
+The [Pawsweep workflow](../.github/workflows/pawsweep.yml) tests and builds the universal app on
+every change to `mac/`. On `main`, when `mac/VERSION` names a version that has no release yet, it
+publishes one (tag `pawsweep-v<version>`). So releasing is: change `mac/VERSION`, commit, push.
 
-The [Pawsweep workflow](../.github/workflows/pawsweep.yml) builds the universal app and publishes the
-release. GitHub Actions must be turned on for the fork (its Actions tab).
+## Mole updates
 
-## Keeping up with Mole
+Once a day the same workflow looks for a new Mole release (`V*` tags of tw93/Mole; never Mole's
+unreleased main branch). When there is one, `scripts/mole-release.sh merge` merges it and bumps
+`mac/VERSION` one patch version, then the workflow tests and builds the app, and only if all of that
+passes does it push to `main` and publish the release. If anything fails (a conflict, a failing
+test, a patch that no longer applies), `main` is left as it was and GitHub emails you about the
+failed run. Fix it by hand and push; the next day's run carries on.
 
 Pawsweep's own files never conflict with Mole's: they are `mac/`, `.github/README.md` (which GitHub
-shows instead of Mole's README) and `.github/workflows/pawsweep.yml`. So GitHub's **Sync fork**
-brings in new Mole versions cleanly.
+shows instead of Mole's README) and `.github/workflows/pawsweep.yml`.
+
+**One-time setup.** Mole's releases often change Mole's own workflow files, and the token GitHub
+gives workflows is not allowed to push those. So the workflow pushes with a token of yours, stored
+as the `SYNC_TOKEN` secret:
+
+1. Create a fine-grained token with
+   [this pre-filled form](https://github.com/settings/personal-access-tokens/new?name=Pawsweep+sync&description=Lets+the+Pawsweep+workflow+push+Mole+releases+to+main&target_name=NezarAli&expires_in=none&contents=write&workflows=write)
+   (Contents and Workflows: read and write). Under **Repository access**, choose **Only select
+   repositories** and pick this repository. Then **Generate token** and copy it.
+2. In this repository: **Settings → Secrets and variables → Actions → New repository secret**,
+   name `SYNC_TOKEN`, paste the token.
+
+Without it, updates that don't touch workflow files still go through, and the others fail with a
+message pointing here. If you give the token an expiry date, renew it before then.
+
+Forks start with scheduled workflows turned off. If the daily run doesn't appear under the
+repository's **Actions** tab, open the Pawsweep workflow there and enable it. GitHub also turns off
+schedules in repositories with no activity for 60 days; Mole releases usually keep it busy.
 
 ## License
 

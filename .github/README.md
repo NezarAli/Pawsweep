@@ -43,8 +43,9 @@ The keyboard keeps working as in Terminal.
 
 ## Staying up to date
 
-New Pawsweep releases bring new Mole versions. Download the newest from
-[Releases](https://github.com/NezarAli/Pawsweep/releases) and replace the old app.
+When Mole publishes a release, a new Pawsweep with that Mole inside follows within a day,
+automatically. Download it from [Releases](https://github.com/NezarAli/Pawsweep/releases) and replace
+the old app. Each release links to what's new in Mole.
 
 ## Safety
 
