@@ -1,0 +1,73 @@
+diff -ru a/lib/manage/remove.sh b/lib/manage/remove.sh
+--- a/lib/manage/remove.sh
++++ b/lib/manage/remove.sh
+@@ -149,6 +149,12 @@
+ remove_mole() {
+     local dry_run_mode="${1:-false}"
+     # The router loads update.sh before remove.sh; isolated helper tests may not.
++    if declare -f is_molepup_bundle > /dev/null 2>&1 && is_molepup_bundle; then
++        local review_icon="${ICON_REVIEW:-⊙}"
++        log_error "This copy of Mole is part of the MolePup app. Self-removal is disabled."
++        printf '%s To remove it: quit MolePup and move it to the Trash\n' "$review_icon"
++        exit 1
++    fi
+     if declare -f is_nix_install > /dev/null 2>&1 && is_nix_install; then
+         local review_icon="${ICON_REVIEW:-⊙}"
+         log_error "Mole was installed via Nix. Self-removal is disabled."
+diff -ru a/lib/manage/update.sh b/lib/manage/update.sh
+--- a/lib/manage/update.sh
++++ b/lib/manage/update.sh
+@@ -805,6 +805,12 @@
+     [[ "${SCRIPT_DIR:-}" == /nix/store/* ]]
+ }
+ 
++# MolePup (mac/ in github.com/NezarAli/Mole) runs this copy from inside its app
++# bundle. The app updates and removes it, so the self-update paths stand down.
++is_molepup_bundle() {
++    [[ "${SCRIPT_DIR:-}" == *.app/Contents/Resources/mole ]]
++}
++
+ get_install_channel() {
+     # This install's own receipt wins. install.sh --config can move the config
+     # dir, and the launcher records where it went in SCRIPT_DIR, so reading the
+@@ -946,6 +952,7 @@
+ read_update_message_cache() {
+     local msg_cache="$1" message=""
+     is_nix_install && return 0
++    is_molepup_bundle && return 0
+     if mole_update_message_cache_is_current "$msg_cache"; then
+         message=$(cat "$msg_cache" 2> /dev/null) || message=""
+         if mole_update_message_is_stale "$message"; then
+@@ -975,6 +982,7 @@
+ check_for_updates() {
+     local cache_dir="$HOME/.cache/mole" channel key now saved_key="" checked=0 interval=0
+     is_nix_install && return 0
++    is_molepup_bundle && return 0
+     ensure_user_dir "$cache_dir" || return 0
+     # The receipt probes run in the foreground now, so an unreadable receipt
+     # must not print sed's diagnostic before the user's command.
+@@ -1157,7 +1165,9 @@
+     disk_free=$(get_free_space)
+ 
+     local install_method="Manual"
+-    if is_nix_install; then
++    if is_molepup_bundle; then
++        install_method="MolePup app"
++    elif is_nix_install; then
+         install_method="Nix"
+     elif is_homebrew_install; then
+         install_method="Homebrew"
+@@ -1251,6 +1261,13 @@
+     }
+     trap '_update_cleanup; echo ""; exit 130' INT TERM
+     trap '_update_cleanup' EXIT
++
++    if is_molepup_bundle; then
++        local review_icon="${ICON_REVIEW:-⊙}"
++        log_error "This copy of Mole is part of the MolePup app. Self-update is disabled."
++        printf '%s To update: download the latest MolePup from https://github.com/NezarAli/Mole/releases\n' "$review_icon"
++        exit 1
++    fi
+ 
+     if is_nix_install; then
+         local review_icon="${ICON_REVIEW:-⊙}"
