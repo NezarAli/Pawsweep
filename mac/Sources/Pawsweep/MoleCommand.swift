@@ -1,9 +1,9 @@
 // The Mole commands the sidebar offers: the same ones `mo --help` lists,
 // minus `update`, `remove` and `completion`, which belong to a terminal install
-// (MolePup updates by downloading a new release).
+// (Pawsweep updates by downloading a new release).
 
 import Foundation
-import MolePupCore
+import PawsweepCore
 
 struct MoleCommand: Identifiable, Hashable {
     enum Group: String, CaseIterable {

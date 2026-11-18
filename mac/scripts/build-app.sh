@@ -1,24 +1,24 @@
 #!/bin/bash
-# Builds MolePup.app and a zip of it from this checkout:
-#   mac/build/MolePup.app
-#   mac/dist/MolePup-<version>.zip
+# Builds Pawsweep.app and a zip of it from this checkout:
+#   mac/build/Pawsweep.app
+#   mac/dist/Pawsweep-<version>.zip
 #
 # Needs Swift 6.2 or newer (Xcode 26, or its Command Line Tools) and Go
-# (the version in ../go.mod). MOLEPUP_ARCHS="arm64" builds for one architecture
+# (the version in ../go.mod). PAWSWEEP_ARCHS="arm64" builds for one architecture
 # only, which is faster while developing; the default is a universal app.
 
 set -euo pipefail
 
 MAC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_DIR="$(cd "$MAC_DIR/.." && pwd)"
-APP_NAME="MolePup"
+APP_NAME="Pawsweep"
 APP_VERSION="$(tr -d '[:space:]' < "$MAC_DIR/VERSION")"
 MOLE_VERSION="$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$REPO_DIR/mole" | head -1)"
 BUILD_NUMBER="$(git -C "$REPO_DIR" rev-list --count HEAD 2> /dev/null || echo 1)"
 BUILD_DIR="$MAC_DIR/build"
 DIST_DIR="$MAC_DIR/dist"
 APP="$BUILD_DIR/$APP_NAME.app"
-read -r -a ARCHS <<< "${MOLEPUP_ARCHS:-arm64 x86_64}"
+read -r -a ARCHS <<< "${PAWSWEEP_ARCHS:-arm64 x86_64}"
 
 log() { printf '\n==> %s\n' "$*"; }
 
@@ -80,7 +80,7 @@ cp "$MAC_DIR/.build/checkouts/SwiftTerm/LICENSE" "$APP/Contents/Resources/Licens
 swift "$MAC_DIR/scripts/make-icon.swift" "$BUILD_DIR/AppIcon.iconset"
 iconutil -c icns -o "$APP/Contents/Resources/AppIcon.icns" "$BUILD_DIR/AppIcon.iconset"
 
-log "Signing (ad hoc: MolePup has no Apple Developer ID)"
+log "Signing (ad hoc: Pawsweep has no Apple Developer ID)"
 codesign --force --sign - "$MOLE_OUT/bin/analyze-go" "$MOLE_OUT/bin/status-go"
 codesign --force --sign - "$APP"
 codesign --verify --strict "$APP"

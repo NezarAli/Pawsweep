@@ -1,4 +1,4 @@
-// Draws MolePup's icon (an amber paw on a dark, terminal-colored tile) into an
+// Draws Pawsweep's icon (an amber paw on a dark, terminal-colored tile) into an
 // .iconset folder for `iconutil`. Its own artwork: Mole's logo is Mole's trademark.
 // Usage: swift make-icon.swift <output.iconset>
 

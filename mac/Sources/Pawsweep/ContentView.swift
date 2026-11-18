@@ -1,5 +1,5 @@
 import AppKit
-import MolePupCore
+import PawsweepCore
 import SwiftUI
 
 struct ContentView: View {
@@ -42,7 +42,7 @@ struct ContentView: View {
         .alert(item: $session.confirmSwitch) { command in
             Alert(
                 title: Text("Stop \(session.current.title)?"),
-                message: Text("\(session.current.title) is still working. MolePup will stop it the way Ctrl+C does in Terminal, then open \(command.title)."),
+                message: Text("\(session.current.title) is still working. Pawsweep will stop it the way Ctrl+C does in Terminal, then open \(command.title)."),
                 primaryButton: .destructive(Text("Stop and Open \(command.title)")) { session.confirmPendingSwitch() },
                 secondaryButton: .cancel()
             )

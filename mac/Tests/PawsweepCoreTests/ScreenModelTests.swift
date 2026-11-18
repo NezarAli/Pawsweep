@@ -1,5 +1,5 @@
 import Testing
-@testable import MolePupCore
+@testable import PawsweepCore
 
 struct ScreenModelTests {
     // The main menu, as `mo` draws it (bin/mole show_main_menu).

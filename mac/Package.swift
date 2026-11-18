@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "MolePup",
+    name: "Pawsweep",
     platforms: [.macOS(.v13)],
     dependencies: [
         // Pinned: 1.99.2 and later do not compile with Swift 6.2 (PowerlineRenderer.swift).
@@ -10,12 +10,12 @@ let package = Package(
     ],
     targets: [
         // Reads Mole's screen: its key hints and the selected row. No AppKit, so it is testable.
-        .target(name: "MolePupCore", path: "Sources/MolePupCore"),
+        .target(name: "PawsweepCore", path: "Sources/PawsweepCore"),
         .executableTarget(
-            name: "MolePup",
-            dependencies: ["MolePupCore", .product(name: "SwiftTerm", package: "SwiftTerm")],
-            path: "Sources/MolePup"
+            name: "Pawsweep",
+            dependencies: ["PawsweepCore", .product(name: "SwiftTerm", package: "SwiftTerm")],
+            path: "Sources/Pawsweep"
         ),
-        .testTarget(name: "MolePupCoreTests", dependencies: ["MolePupCore"], path: "Tests/MolePupCoreTests"),
+        .testTarget(name: "PawsweepCoreTests", dependencies: ["PawsweepCore"], path: "Tests/PawsweepCoreTests"),
     ]
 )

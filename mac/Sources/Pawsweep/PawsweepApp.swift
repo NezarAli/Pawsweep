@@ -1,16 +1,16 @@
-// MolePup: a Mac window for Mole (https://github.com/tw93/Mole).
+// Pawsweep: a minimal Mac interface for Mole (https://github.com/tw93/Mole).
 // It runs Mole itself, unchanged, and adds the mouse. Not affiliated with Mole.
 
 import AppKit
 import SwiftUI
 
 @main
-struct MolePupApp: App {
+struct PawsweepApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var session = Session()
 
     var body: some Scene {
-        Window("MolePup", id: "main") {
+        Window("Pawsweep", id: "main") {
             ContentView(session: session)
                 .frame(minWidth: 860, minHeight: 540)
                 .onAppear { appDelegate.session = session }
@@ -18,7 +18,7 @@ struct MolePupApp: App {
         .defaultSize(width: 1120, height: 740)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About MolePup") { AppDelegate.showAbout(moleVersion: session.mole?.version) }
+                Button("About Pawsweep") { AppDelegate.showAbout(moleVersion: session.mole?.version) }
             }
             CommandGroup(replacing: .newItem) {}
             CommandMenu("Mole") {
@@ -61,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if session.isBusy {
             let alert = NSAlert()
             alert.messageText = "Quit while \(session.current.title) is working?"
-            alert.informativeText = "MolePup will stop it the way Ctrl+C does in Terminal."
+            alert.informativeText = "Pawsweep will stop it the way Ctrl+C does in Terminal."
             alert.addButton(withTitle: "Quit")
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
@@ -72,11 +72,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     static func showAbout(moleVersion: String?) {
         let credits = """
-        MolePup is a Mac window for Mole, the open-source command-line Mac cleaner by tw93 and its contributors (github.com/tw93/Mole). It runs Mole \(moleVersion ?? "") unchanged and lets you use it with the mouse.
+        Pawsweep is a minimal Mac interface for Mole, the open-source command-line Mac cleaner by tw93 and its contributors (github.com/tw93/Mole). It runs Mole \(moleVersion ?? "") unchanged and lets you use it with the mouse.
 
-        MolePup is an unofficial community project. It is not affiliated with or endorsed by the Mole project, and "Mole" is the Mole project's trademark.
+        Pawsweep is an unofficial community project. It is not affiliated with or endorsed by the Mole project, and "Mole" is the Mole project's trademark.
 
-        License: GPL-3.0. Source: github.com/NezarAli/Mole (the mac folder). The terminal is SwiftTerm by Miguel de Icaza (MIT).
+        License: GPL-3.0. Source: github.com/NezarAli/Pawsweep (the mac folder). The terminal is SwiftTerm by Miguel de Icaza (MIT).
         """
         let style = NSMutableParagraphStyle()
         style.alignment = .center

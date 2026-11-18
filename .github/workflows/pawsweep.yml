@@ -1,14 +1,14 @@
-name: MolePup
+name: Pawsweep
 
-# Builds MolePup, the Mac app in mac/. A molepup-v* tag also publishes the
+# Builds Pawsweep, the Mac app in mac/. A pawsweep-v* tag also publishes the
 # zipped app as a GitHub release. (Mole's own releases use V* tags.)
 on:
   push:
     branches: [main]
-    tags: ['molepup-v*']
-    paths: ['mac/**', '.github/workflows/molepup.yml']
+    tags: ['pawsweep-v*']
+    paths: ['mac/**', '.github/workflows/pawsweep.yml']
   pull_request:
-    paths: ['mac/**', '.github/workflows/molepup.yml']
+    paths: ['mac/**', '.github/workflows/pawsweep.yml']
   workflow_dispatch:
 
 permissions:
@@ -41,27 +41,27 @@ jobs:
         run: mac/scripts/build-app.sh
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/molepup-v')
+        if: startsWith(github.ref, 'refs/tags/pawsweep-v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="$(tr -d '[:space:]' < mac/VERSION)"
-          if [[ "$GITHUB_REF_NAME" != "molepup-v$version" ]]; then
+          if [[ "$GITHUB_REF_NAME" != "pawsweep-v$version" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match mac/VERSION ($version)." >&2
             exit 1
           fi
           mole_version="$(sed -n 's/^VERSION="\(.*\)"$/\1/p' mole | head -1)"
           cat > notes.md << EOF
-          MolePup $version, a Mac window for Mole $mole_version with mouse support.
+          Pawsweep $version, a Mac window for Mole $mole_version with mouse support.
 
-          **Install:** download \`MolePup-$version.zip\`, unzip it, and move MolePup to Applications.
-          MolePup is not signed with an Apple Developer ID, so the first time macOS blocks it:
-          open **System Settings → Privacy & Security** and click **Open Anyway** next to MolePup.
+          **Install:** download \`Pawsweep-$version.zip\`, unzip it, and move Pawsweep to Applications.
+          Pawsweep is not signed with an Apple Developer ID, so the first time macOS blocks it:
+          open **System Settings → Privacy & Security** and click **Open Anyway** next to Pawsweep.
           Needs macOS 13 or newer, on Apple silicon or Intel.
 
           See [mac/README.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/mac/README.md) for how to use it.
-          MolePup is a community project, not affiliated with or endorsed by Mole.
+          Pawsweep is a community project, not affiliated with or endorsed by Mole.
           EOF
           sed -i '' 's/^          //' notes.md
-          gh release create "$GITHUB_REF_NAME" "mac/dist/MolePup-$version.zip" \
-            --title "MolePup $version" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" "mac/dist/Pawsweep-$version.zip" \
+            --title "Pawsweep $version" --notes-file notes.md

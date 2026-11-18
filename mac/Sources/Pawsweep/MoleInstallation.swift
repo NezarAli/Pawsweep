@@ -1,4 +1,4 @@
-// Where the copy of Mole that MolePup runs lives, and the environment it runs in.
+// Where the copy of Mole that Pawsweep runs lives, and the environment it runs in.
 
 import Foundation
 
@@ -8,13 +8,13 @@ struct MoleInstallation {
     let version: String?
 
     /// The app bundle's copy (Contents/Resources/mole). For development, the
-    /// MOLEPUP_MOLE_DIR environment variable or the `-MolePupMoleDir <folder>`
+    /// PAWSWEEP_MOLE_DIR environment variable or the `-PawsweepMoleDir <folder>`
     /// launch argument points at another copy, or `swift run` finds the
     /// repository that holds mac/.
     static func find() -> MoleInstallation? {
         var candidates: [URL] = []
-        let override = ProcessInfo.processInfo.environment["MOLEPUP_MOLE_DIR"]
-            ?? UserDefaults.standard.string(forKey: "MolePupMoleDir")
+        let override = ProcessInfo.processInfo.environment["PAWSWEEP_MOLE_DIR"]
+            ?? UserDefaults.standard.string(forKey: "PawsweepMoleDir")
         if let dir = override, !dir.isEmpty {
             candidates.append(URL(fileURLWithPath: dir))
         }
@@ -57,7 +57,7 @@ enum ShellEnvironment {
         environment["PATH"] = mergedPath(loginPath, environment["PATH"])
         environment["TERM"] = "xterm-256color"
         environment["COLORTERM"] = "truecolor"
-        environment["TERM_PROGRAM"] = "MolePup"
+        environment["TERM_PROGRAM"] = "Pawsweep"
         if (environment["LANG"] ?? "").isEmpty {
             environment["LANG"] = "en_US.UTF-8"
         }
@@ -82,7 +82,7 @@ enum ShellEnvironment {
         let shell = ProcessInfo.processInfo.environment["SHELL"].flatMap {
             FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil
         } ?? "/bin/zsh"
-        let marker = "__MOLEPUP_PATH__"
+        let marker = "__PAWSWEEP_PATH__"
         let printPath = (shell as NSString).lastPathComponent == "fish"
             ? "printf '\\n\(marker)%s\(marker)\\n' (string join : $PATH)"
             : "printf '\\n\(marker)%s\(marker)\\n' \"$PATH\""

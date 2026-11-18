@@ -1,7 +1,7 @@
 // Runs one Mole command at a time in the terminal, and tracks what it shows.
 
 import AppKit
-import MolePupCore
+import PawsweepCore
 import SwiftTerm
 
 @MainActor
@@ -142,8 +142,8 @@ final class Session: NSObject, ObservableObject, LocalProcessTerminalViewDelegat
         container.show(view) { [weak self] view in
             guard let self else { return }
             guard let mole = self.mole else {
-                view.feed(text: "MolePup could not find its copy of Mole.\r\n"
-                    + "Download MolePup again from https://github.com/NezarAli/Mole/releases\r\n")
+                view.feed(text: "Pawsweep could not find its copy of Mole.\r\n"
+                    + "Download Pawsweep again from https://github.com/NezarAli/Pawsweep/releases\r\n")
                 self.state = .finished(1)
                 return
             }

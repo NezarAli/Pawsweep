@@ -9,12 +9,12 @@
 // Anywhere else a click selects text as in Terminal.
 
 import AppKit
-import MolePupCore
+import PawsweepCore
 import os
 import SwiftTerm
 
-/// `log stream --level debug --predicate 'subsystem == "io.github.nezarali.molepup"'`
-let mouseLog = Logger(subsystem: "io.github.nezarali.molepup", category: "mouse")
+/// `log stream --level debug --predicate 'subsystem == "io.github.nezarali.pawsweep"'`
+let mouseLog = Logger(subsystem: "io.github.nezarali.pawsweep", category: "mouse")
 
 final class MoleTerminalView: LocalProcessTerminalView {
     /// Called when the visible text changes.

@@ -1,21 +1,21 @@
-# MolePup
+# Pawsweep
 
 A free Mac app for [Mole](https://github.com/tw93/Mole), the open-source command-line Mac cleaner.
-MolePup runs Mole itself, in a window, and lets you drive it with the mouse. Every screen looks
+Pawsweep runs Mole itself, in a window, and lets you drive it with the mouse. Every screen looks
 and behaves exactly as `mo` does in Terminal, because it *is* `mo`.
 
-> MolePup is a community project. It is not affiliated with or endorsed by the Mole project, and it
+> Pawsweep is a community project. It is not affiliated with or endorsed by the Mole project, and it
 > is not [Mole for Mac](https://mole.fit). "Mole" is the Mole project's trademark (see
 > [TRADEMARK.md](../TRADEMARK.md)).
 
 ## Install
 
-1. Download `MolePup-<version>.zip` from [Releases](https://github.com/NezarAli/Mole/releases).
-2. Unzip it and move **MolePup** to your Applications folder.
-3. Open it. The first time, macOS blocks it, because MolePup is not signed with a paid Apple
+1. Download `Pawsweep-<version>.zip` from [Releases](https://github.com/NezarAli/Pawsweep/releases).
+2. Unzip it and move **Pawsweep** to your Applications folder.
+3. Open it. The first time, macOS blocks it, because Pawsweep is not signed with a paid Apple
    Developer ID. Open **System Settings → Privacy & Security**, scroll down to the message about
-   MolePup, and click **Open Anyway**. (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/MolePup.app`.)
-4. Optional: give MolePup **Full Disk Access** (System Settings → Privacy & Security → Full Disk
+   Pawsweep, and click **Open Anyway**. (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Pawsweep.app`.)
+4. Optional: give Pawsweep **Full Disk Access** (System Settings → Privacy & Security → Full Disk
    Access), so Mole can reach everything it reaches from a Terminal that has it.
 
 Needs macOS 13 Ventura or newer, on Apple silicon or Intel. Nothing else to install: Mole comes
@@ -29,7 +29,7 @@ maintenance, project folders, Touch ID for sudo, help). Click one to run it.
 
 In the terminal, the mouse presses keys for you:
 
-| You do | MolePup presses |
+| You do | Pawsweep presses |
 |---|---|
 | Click a row in a list | ↑ or ↓ until the selection arrow (➤ or ▶) is on that row |
 | Click a checkbox row (● / ○) | the arrows, then Space, so the box toggles |
@@ -50,36 +50,36 @@ The keyboard works as it does in Terminal. Also:
 
 ## Safety
 
-MolePup changes nothing about what Mole does; it only presses keys. Mole's own rules apply:
+Pawsweep changes nothing about what Mole does; it only presses keys. Mole's own rules apply:
 Clean, Purge and Installers delete permanently, while Uninstall, Analyze and Slim move files to the
 Trash after you confirm. Use Dry Run first. Mole records what it removed in
 `~/Library/Logs/mole/operations.log` (see History).
 
 ## Updates
 
-The Mole inside MolePup is the version this fork had when the release was built. `mo update` and
+The Mole inside Pawsweep is the version this fork had when the release was built. `mo update` and
 `mo remove` are disabled inside the app (they would rewrite the app itself) and point here instead.
-New MolePup releases bring new Mole versions.
+New Pawsweep releases bring new Mole versions.
 
 ## How it works
 
-- `Sources/MolePupCore/ScreenModel.swift` reads the visible text: the row marked with ➤ or ▶, and
+- `Sources/PawsweepCore/ScreenModel.swift` reads the visible text: the row marked with ➤ or ▶, and
   the gray hint line (`↑↓ | Space Select | Enter Confirm | Q Quit`).
-- `Sources/MolePup/MoleTerminalView.swift` turns a click into key presses. Mole's menus read one key
+- `Sources/Pawsweep/MoleTerminalView.swift` turns a click into key presses. Mole's menus read one key
   at a time and some drop keys that arrive while they redraw, so it presses one arrow, waits for the
   redraw, and checks where the arrow landed before pressing the next.
 - The terminal is [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (MIT).
 - The app bundle holds Mole's `mole`, `mo`, `bin/` and `lib/`, plus the `analyze` and `status` Go
   tools built from `cmd/`. The bundled copy differs from the repository's in one way:
-  `patches/bundled-mole.patch` disables self-update and self-removal and names the install "MolePup app".
+  `patches/bundled-mole.patch` disables self-update and self-removal and names the install "Pawsweep app".
 
 ## Build from source
 
 You need Swift 6.2 or newer (Xcode 26, or its Command Line Tools) and Go (the version in `../go.mod`).
 
 ```bash
-mac/scripts/build-app.sh                       # mac/build/MolePup.app and mac/dist/MolePup-<version>.zip
-MOLEPUP_ARCHS=arm64 mac/scripts/build-app.sh   # one architecture, faster
+mac/scripts/build-app.sh                       # mac/build/Pawsweep.app and mac/dist/Pawsweep-<version>.zip
+PAWSWEEP_ARCHS=arm64 mac/scripts/build-app.sh   # one architecture, faster
 swift test --package-path mac                  # the screen-reading tests
 ```
 
@@ -90,22 +90,22 @@ F=/Library/Developer/CommandLineTools/Library/Developer/Frameworks
 swift test --package-path mac -Xswiftc -F -Xswiftc $F -Xlinker -F -Xlinker $F -Xlinker -rpath -Xlinker $F
 ```
 
-To run the app against another copy of Mole (a checkout, or a test copy), set `MOLEPUP_MOLE_DIR`
-or pass `-MolePupMoleDir <folder>` when launching it.
+To run the app against another copy of Mole (a checkout, or a test copy), set `PAWSWEEP_MOLE_DIR`
+or pass `-PawsweepMoleDir <folder>` when launching it.
 
 SwiftTerm is pinned to 1.99.1: later versions do not compile with Swift 6.2.
 
 ## Releasing
 
 1. Change `mac/VERSION`, commit, and push.
-2. Tag the commit `molepup-v<version>` and push the tag.
+2. Tag the commit `pawsweep-v<version>` and push the tag.
 
-The [MolePup workflow](../.github/workflows/molepup.yml) builds the universal app and publishes the
+The [Pawsweep workflow](../.github/workflows/pawsweep.yml) builds the universal app and publishes the
 release. GitHub Actions must be turned on for the fork (its Actions tab).
 
 ## Keeping up with Mole
 
-Everything MolePup adds lives in `mac/`, `.github/workflows/molepup.yml` and a note at the top of
+Everything Pawsweep adds lives in `mac/`, `.github/workflows/pawsweep.yml` and a note at the top of
 the repository's README, so GitHub's **Sync fork** brings in new Mole versions with few conflicts.
 
 ## License
