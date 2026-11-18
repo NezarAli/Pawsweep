@@ -1,7 +1,5 @@
 <p align="right"><b>macOS</b> · <a href="https://github.com/tw93/Mole/tree/windows#readme">Windows</a> · <a href="https://github.com/tw93/Mole/tree/linux#readme">Linux</a></p>
 
-> **This fork adds Pawsweep**, a free Mac app that runs Mole in a window with mouse support. See [mac/README.md](mac/README.md), or [download it](https://github.com/NezarAli/Pawsweep/releases). Pawsweep is a community project, not affiliated with or endorsed by Mole.
-
 <div align="center">
   <h1>Mole</h1>
   <p><b>Deep clean, uninstall, optimize, analyze disk and monitor your Mac. Free open-source CLI, plus a Mac app.</b></p>
