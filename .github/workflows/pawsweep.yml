@@ -124,14 +124,3 @@ jobs:
           cat notes.md
           gh release create "$tag" "mac/dist/Pawsweep-$version.zip" \
             --target "$(git rev-parse HEAD)" --title "Pawsweep $version" --notes-file notes.md
-
-      # One-off: the app was called MolePup until 0.2.0. Remove this step once it has run.
-      - name: Remove the MolePup release
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          if gh release view molepup-v0.1.0 > /dev/null 2>&1; then
-            gh release delete molepup-v0.1.0 --cleanup-tag --yes
-          fi
