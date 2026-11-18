@@ -16,7 +16,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # The Intel runner builds the same universal app. GitHub's Apple silicon
+    # runners dropped the release job twice for lack of capacity (2026-11-18).
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
