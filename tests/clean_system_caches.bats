@@ -39,22 +39,35 @@ setup() {
     [[ ! -f "$HOME/.cache/mole/permissions_granted" ]]
 }
 
-@test "check_tcc_permissions skips when permissions already granted" {
-    mkdir -p "$HOME/.cache/mole"
-    touch "$HOME/.cache/mole/permissions_granted"
+@test "check_tcc_permissions reports blocked only while awaiting first-run permissions" {
+    if ! /usr/bin/script -q /dev/null /usr/bin/true < /dev/null > /dev/null 2>&1; then
+        skip "script cannot allocate a TTY in this environment"
+    fi
 
-    run /bin/bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/clean/caches.sh'; [[ -t 1 ]] || true; check_tcc_permissions"
+    local trace="$BATS_TEST_TMPDIR/tcc-status"
+    # shellcheck disable=SC2016  # bash running under the PTY expands the fixture paths
+    TRACE="$trace" /usr/bin/script -q /dev/null /bin/bash --noprofile --norc -c '
+        source "$PROJECT_ROOT/lib/core/common.sh"
+        source "$PROJECT_ROOT/lib/clean/caches.sh"
+        mole_report_program_status() { echo "$*" >> "$TRACE"; }
+        ls() { return 1; }
+        read() { echo read >> "$TRACE"; }
+        start_inline_spinner() { echo requesting >> "$TRACE"; }
+        stop_inline_spinner() { echo requested >> "$TRACE"; }
+
+        check_tcc_permissions > /dev/null
+        echo interactive >> "$TRACE"
+        check_tcc_permissions
+        check_tcc_permissions  # The successful preflight left its flag.
+        rm -f "$HOME/.cache/mole/permissions_granted"
+        ls() { return 0; }
+        check_tcc_permissions  # All directories were already accessible.
+        echo finished >> "$TRACE"
+    ' < /dev/null > /dev/null
+
+    run cat "$trace"
     [ "$status" -eq 0 ]
-}
-
-@test "check_tcc_permissions validates protected directories" {
-
-    [[ -d "$HOME/Library/Caches" ]] || return 1
-    [[ -d "$HOME/Library/Logs" ]] || return 1
-    [[ -d "$HOME/.cache/mole" ]] || return 1
-
-    run /bin/bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/clean/caches.sh'; check_tcc_permissions < /dev/null"
-    [ "$status" -eq 0 ]
+    [[ "$output" == $'interactive\nblocked permission\nread\nrequesting\nrequested\nworking\nfinished' ]]
 }
 
 @test "clean_service_worker_cache returns early when path doesn't exist" {
@@ -298,6 +311,40 @@ EOF
 
     [ "$status" -eq 0 ] || return 1
     [[ "$output" != *"TestBrowser Service Worker"* ]]
+}
+
+@test "clean_service_worker_cache adds removed caches to the run totals (#2045)" {
+    local test_cache="$HOME/test_sw_cache_totals"
+    mkdir -p "$test_cache/origin_a/cache_one" "$test_cache/origin_b/cache_two"
+
+    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" CACHE="$test_cache" \
+        /bin/bash --noprofile --norc << 'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+DRY_RUN=false
+declare -a PROTECTED_SW_DOMAINS=("never.invalid")
+safe_remove() { return 0; }
+note_activity() { :; }
+run_with_timeout() {
+    shift
+    if [[ "$1" == "du" ]]; then
+        printf '512\t%s\n' "$3"
+        return 0
+    fi
+    "$@"
+}
+files_cleaned=0
+total_size_cleaned=0
+total_items=0
+clean_service_worker_cache TestBrowser "$CACHE"
+printf 'TOTALS=%s:%s:%s\n' "$files_cleaned" "$total_size_cleaned" "$total_items"
+EOF
+
+    rm -rf "$test_cache"
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *"TestBrowser Service Worker"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"TOTALS=2:1024:1"* ]] || { echo "$output"; return 1; }
 }
 
 @test "clean_service_worker_cache checks its guard after sizing before dry-run registration" {
@@ -1338,6 +1385,69 @@ EOF
     [ "$status" -eq 0 ] || { echo "status $status: $output"; return 1; }
 }
 
+@test "a slow Next.js listing leaves the Git budget for other project caches" {
+    run env HOME="$BATS_TEST_TMPDIR/next-budget" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+fixture_repo="$HOME/repo"
+fixture_next="$fixture_repo/a/.next"
+fixture_python="$fixture_repo/z/__pycache__"
+mkdir -p "$fixture_next/cache" "$fixture_python"
+touch "$fixture_next/cache/bundle" "$fixture_python/main.pyc"
+git init -q "$fixture_repo"
+printf '%s\t%s\n' "$fixture_repo" "$fixture_next" "$fixture_repo" "$fixture_python" > "$HOME/matches"
+_MOLE_FIND_KNOWS_DATALESS=yes
+run_with_timeout() {
+    shift
+    local arg
+    for arg in "$@"; do
+        if [[ "$arg" == "$fixture_next/cache" ]]; then
+            # Advance the clock instead of making the test wait out the budget.
+            SECONDS=$((SECONDS + MOLE_TIMEOUT_HINT_SCAN_SEC + 2))
+            return 124
+        fi
+    done
+    "$@"
+}
+project_cache_build_git_index "$HOME/matches" "$HOME/index" "$((SECONDS + MOLE_TIMEOUT_HINT_SCAN_SEC))"
+grep -Fxq "C$fixture_python" "$HOME/index" || { cat "$HOME/index"; exit 1; }
+EOF
+    [ "$status" -eq 0 ] || { printf '%s\n' "$output"; return 1; }
+}
+
+@test "Next.js listings share one budget, so a spent budget skips the next cache" {
+    run env HOME="$BATS_TEST_TMPDIR/next-shared-budget" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+fixture_repo="$HOME/repo"
+first_next="$fixture_repo/a/.next"
+second_next="$fixture_repo/b/.next"
+mkdir -p "$first_next/cache" "$second_next/cache"
+touch "$first_next/cache/bundle" "$second_next/cache/bundle"
+git init -q "$fixture_repo"
+printf '%s\t%s\n' "$fixture_repo" "$first_next" "$fixture_repo" "$second_next" > "$HOME/matches"
+_MOLE_FIND_KNOWS_DATALESS=yes
+run_with_timeout() {
+    shift
+    local arg
+    for arg in "$@"; do
+        if [[ "$arg" == "$first_next/cache" ]]; then
+            SECONDS=$((SECONDS + MOLE_TIMEOUT_HINT_SCAN_SEC + 2))
+            return 124
+        fi
+        [[ "$arg" != "$second_next/cache" ]] || printf '%s\n' "$arg" >> "$HOME/second-listed"
+    done
+    "$@"
+}
+project_cache_build_git_index "$HOME/matches" "$HOME/index" "$((SECONDS + MOLE_TIMEOUT_HINT_SCAN_SEC))"
+[[ ! -e "$HOME/second-listed" ]] || exit 11
+! grep -Fq "$second_next" "$HOME/index" || exit 12
+EOF
+    [ "$status" -eq 0 ] || { printf '%s\n' "$output"; return 1; }
+}
+
 @test "clean_project_caches skips a refused .next/cache child and still cleans its siblings" {
     local mode
     for mode in real dry; do
@@ -1469,50 +1579,38 @@ EOF
 }
 
 @test "clean_project_caches scans configured roots instead of HOME" {
-    mkdir -p "$HOME/.config/mole"
-    mkdir -p "$HOME/CustomProjects/app/.next/cache"
-    touch "$HOME/CustomProjects/app/package.json"
+    local fixture_home
+    fixture_home="$(cd "$BATS_TEST_TMPDIR" && pwd -P)/configured-roots"
+    # Automatic root discovery skips Library, so this project needs the config.
+    local root="$fixture_home/Library/CustomProjects"
+    local cache_file="$root/app/.next/cache/test.cache"
+    local find_log="$fixture_home/find.log"
+    mkdir -p "$fixture_home/.config/mole" "$root/app/.next/cache"
+    touch "$root/app/package.json" "$cache_file"
+    printf '%s\n' "$root" > "$fixture_home/.config/mole/purge_paths"
 
-    local fake_bin
-    fake_bin="$(mktemp -d "$HOME/find-bin.XXXXXX")"
-    local find_log="$HOME/find.log"
-
-    cat > "$fake_bin/find" <<EOF
+    cat > "$fixture_home/log-find" <<'SCRIPT'
 #!/bin/bash
-printf '%s\n' "\$*" >> "$find_log"
-root=""
-prev=""
-for arg in "\$@"; do
-    if [[ "\$prev" == "-P" ]]; then
-        root="\$arg"
-        break
-    fi
-    prev="\$arg"
-done
-if [[ "\$root" == "$HOME/CustomProjects" ]]; then
-    printf '%s\n' "$HOME/CustomProjects/app/.next"
-fi
-EOF
-    chmod +x "$fake_bin/find"
+printf '%s\n' "$*" >> "$HOME/find.log"
+exec /usr/bin/find "$@"
+SCRIPT
+    chmod +x "$fixture_home/log-find"
 
-    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" PATH="$fake_bin:$PATH" /bin/bash --noprofile --norc <<'EOF'
+    run env HOME="$fixture_home" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF'
 set -euo pipefail
-printf '%s\n' "$HOME/CustomProjects" > "$HOME/.config/mole/purge_paths"
 source "$PROJECT_ROOT/lib/core/common.sh"
 source "$PROJECT_ROOT/lib/clean/caches.sh"
-FIND_BSD=find  # route the scan through the stub
-run_with_timeout() { shift; "$@"; }
-safe_clean() { echo "$2|$1"; }
+DRY_RUN=true
+FIND_BSD="$HOME/log-find"
+safe_clean() { printf '%s|%s\n' "$2" "$1"; }
 safe_clean_guarded() { shift; safe_clean "$@"; }
 clean_project_caches
 EOF
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"Next.js build cache"* ]] || return 1
-    grep -q -- "-P $HOME/CustomProjects " "$find_log"
-    run grep -q -- "-P $HOME " "$find_log"
+    [ "$status" -eq 0 ] || { printf '%s\n' "$output"; return 1; }
+    [[ "$output" == *"Next.js build cache|$cache_file"* ]] || { printf '%s\n' "$output"; return 1; }
+    grep -Fq -- "-P $root " "$find_log"
+    run grep -Fq -- "-P $fixture_home " "$find_log"
     [ "$status" -eq 1 ]
-
-    rm -rf "$HOME/CustomProjects" "$HOME/.config/mole" "$fake_bin" "$find_log"
 }
 
 @test "clean_project_caches auto-detects top-level project containers" {
@@ -1942,6 +2040,249 @@ EOF
 	[[ "$result" == STATUS=124*" BYTES=0" ]] || return 1
 	[[ "$elapsed" =~ ^[0-9]+$ ]] || return 1
 	((elapsed < 4))
+}
+
+@test "mole_find_knows_dataless memoizes the answer and passes a signal through (#2042)" {
+    run env HOME="$BATS_TEST_TMPDIR/dataless-probe" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+mkdir -p "$HOME"
+cat > "$HOME/find" <<'SCRIPT'
+#!/bin/bash
+printf 'call\n' >> "$HOME/calls"
+exit "$(cat "$HOME/answer")"
+SCRIPT
+chmod +x "$HOME/find"
+FIND_BSD="$HOME/find"
+calls() { wc -l < "$HOME/calls" | tr -d ' '; }
+
+echo 0 > "$HOME/answer"
+mole_find_knows_dataless || exit 1
+echo 1 > "$HOME/answer"
+mole_find_knows_dataless || exit 1
+[[ "$(calls)" == 1 ]] || { echo "NOT_MEMOIZED"; exit 1; }
+
+unset _MOLE_FIND_KNOWS_DATALESS
+if mole_find_knows_dataless; then exit 1; fi
+[[ "$_MOLE_FIND_KNOWS_DATALESS" == no ]] || exit 1
+
+unset _MOLE_FIND_KNOWS_DATALESS
+echo 124 > "$HOME/answer"
+rc=0
+mole_find_knows_dataless || rc=$?
+[[ $rc -eq 124 ]] || { echo "TIMEOUT rc=$rc"; exit 1; }
+echo 0 > "$HOME/answer"
+rc=0
+mole_find_knows_dataless || rc=$?
+[[ $rc -eq 124 ]] || { echo "TIMEOUT_NOT_MEMOIZED rc=$rc"; exit 1; }
+
+unset _MOLE_FIND_KNOWS_DATALESS
+echo 130 > "$HOME/answer"
+rc=0
+mole_find_knows_dataless || rc=$?
+[[ $rc -eq 130 && -z "${_MOLE_FIND_KNOWS_DATALESS:-}" ]] || { echo "SIGNAL rc=$rc"; exit 1; }
+printf 'PROBE_OK\n'
+EOF
+
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *PROBE_OK* ]]
+}
+
+@test "scan_project_cache_root prunes online-only folders before entering them (#2042)" {
+    run env HOME="$BATS_TEST_TMPDIR/dataless-home" PROJECT_ROOT="$PROJECT_ROOT" LC_ALL=C /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+root="$HOME/Library/CloudStorage"
+drive="$root/GoogleDrive-test"
+mkdir -p "$drive/local-app/__pycache__" "$drive/OnlineOnly/app/__pycache__"
+touch "$drive/local-app/pyproject.toml" "$drive/local-app/__pycache__/module.pyc" \
+    "$drive/OnlineOnly/app/pyproject.toml" "$drive/OnlineOnly/app/__pycache__/module.pyc"
+# Ordinary fixtures cannot carry the File Provider flag, so run BSD find with
+# the flag predicate answered by the fixture's name.
+cat > "$HOME/find" <<'SCRIPT'
+#!/bin/bash
+args=()
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "-flags" && "$2" == "+dataless" ]]; then
+        args+=(-name OnlineOnly)
+        shift 2
+    else
+        args+=("$1")
+        shift
+    fi
+done
+exec /usr/bin/find "${args[@]}"
+SCRIPT
+chmod +x "$HOME/find"
+FIND_BSD="$HOME/find"
+
+_MOLE_FIND_KNOWS_DATALESS=yes
+scan_project_cache_root "$root" "$HOME/pruned"
+grep -Fxq "$drive/local-app"$'\t'"$drive/local-app/__pycache__" "$HOME/pruned" || exit 1
+! grep -Fq OnlineOnly "$HOME/pruned" || exit 1
+
+# A find without the flag keeps the previous walk, which enters the folder.
+_MOLE_FIND_KNOWS_DATALESS=no
+scan_project_cache_root "$root" "$HOME/unpruned"
+grep -Fxq "$drive/OnlineOnly/app"$'\t'"$drive/OnlineOnly/app/__pycache__" "$HOME/unpruned" || exit 1
+printf 'DATALESS_PRUNED\n'
+EOF
+
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *DATALESS_PRUNED* ]]
+}
+
+@test "project-cache preview skips online-only Next.js caches and their online-only children" {
+    run env HOME="$BATS_TEST_TMPDIR/next-preview" PROJECT_ROOT="$PROJECT_ROOT" SUDO_USER= \
+        MOLE_DRY_RUN=1 MOLE_TEST_NO_AUTH=1 /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+mkdir -p "$HOME"
+HOME=$(cd "$HOME" && pwd -P)
+source "$PROJECT_ROOT/bin/clean.sh"
+[[ "$MOLE_USER_HOME" == "$HOME" && "$DRY_RUN" == true ]] || exit 1
+
+fixture_root="$HOME/Library/CloudStorage"
+offline_cache="$fixture_root/FixtureDrive/offline-app/.next/cache"
+local_cache="$fixture_root/FixtureDrive/local-app/.next/cache"
+mixed_cache="$fixture_root/FixtureDrive/mixed-app/.next/cache"
+canary="$offline_cache/unlisted.cache"
+for cache in "$offline_cache" "$local_cache" "$mixed_cache"; do
+    mkdir -p "$cache"
+    touch "${cache%/.next/cache}/package.json"
+done
+mkdir -p "$mixed_cache/local-dir" "$mixed_cache/offline-dir"
+fixture_files=(
+    "$canary" "$local_cache/local-file" "$mixed_cache/local-file"
+    "$mixed_cache/local-dir/entry" "$mixed_cache/offline-file" "$mixed_cache/offline-dir/entry"
+)
+for path in "${fixture_files[@]}"; do
+    printf 'cache fixture\n' > "$path"
+done
+/usr/bin/chflags nodump "$offline_cache" "$mixed_cache/offline-file" "$mixed_cache/offline-dir"
+
+# Stand in for File Provider flags while keeping BSD find's real pruning rules.
+cat > "$HOME/fixture-find" <<'SCRIPT'
+#!/bin/bash
+args=()
+for arg in "$@"; do
+    if [[ "$arg" == +dataless ]]; then
+        case "${FIXTURE_FIND_DATALESS:-yes}" in
+            no) exit 1 ;;
+            timeout)
+                printf 'probe\n' >> "$HOME/timed-out-probe"
+                exit 124
+                ;;
+        esac
+        arg=+nodump
+    fi
+    args+=("$arg")
+done
+exec /usr/bin/find "${args[@]}"
+SCRIPT
+chmod +x "$HOME/fixture-find"
+FIND_BSD="$HOME/fixture-find"
+unset _MOLE_FIND_KNOWS_DATALESS
+export FIXTURE_FIND_DATALESS=yes
+discover_project_cache_roots() { printf '%s\n' "$fixture_root"; }
+
+# An older find must still show local cache entries. Isolate its cached probe.
+(
+    export FIXTURE_FIND_DATALESS=no
+    prepare_clean_preview_file
+    clean_project_caches
+    render_clean_preview_from_ledger
+    grep -Fq -- "$local_cache/local-file  #" "$CLEAN_PREVIEW_FINAL_FILE" || {
+        cat "$CLEAN_PREVIEW_FINAL_FILE"
+        exit 1
+    }
+)
+
+# The background walk can know the flag even if a separate foreground probe
+# times out. Keep the caches rather than treating a timeout as an old find.
+(
+    prepare_clean_preview_file
+    start_project_cache_prefetch
+    export FIXTURE_FIND_DATALESS=timeout
+    clean_project_caches
+    render_clean_preview_from_ledger
+    [[ -s "$HOME/timed-out-probe" ]] || { echo "Foreground probe was not reached"; exit 1; }
+    if grep -F -- '/.next/cache/' "$CLEAN_PREVIEW_FINAL_FILE"; then
+        echo "Next.js cache was listed after a flag probe timeout"
+        exit 1
+    fi
+)
+
+prepare_clean_preview_file
+# A Bash glob bypasses find. Trace expanded paths so a child that reaches
+# inventory and is later filtered from the preview still fails the test.
+trace="$HOME/project-cache.trace"
+(set -x; clean_project_caches) 2> "$trace"
+render_clean_preview_from_ledger
+preview_rc=0
+diff -u <(printf '%s\n' "$local_cache/local-file" "$mixed_cache/local-dir" "$mixed_cache/local-file") \
+    <(sed -n 's|^\(/.*\)  # .*|\1|p' "$CLEAN_PREVIEW_FINAL_FILE" | sort) || preview_rc=1
+if grep -Fm1 -- "$canary" "$trace"; then
+    printf '%s\n' 'An online-only cache child reached project-cache processing.' >&2
+    preview_rc=1
+fi
+for path in "${fixture_files[@]}"; do
+    [[ -f "$path" ]] || exit 1
+done
+exit "$preview_rc"
+EOF
+
+    [ "$status" -eq 0 ] || { printf '%s\n' "$output"; return 1; }
+}
+
+@test "CloudStorage probe prunes an online-only provider instead of failing the root (#2044)" {
+    [[ "$EUID" -ne 0 ]] || skip "root can read mode-000 directories"
+
+    run env HOME="$BATS_TEST_TMPDIR/dataless-probe-home" PROJECT_ROOT="$PROJECT_ROOT" LC_ALL=C /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/caches.sh"
+root="$HOME/Library/CloudStorage"
+offline="$root/AOffline-provider"
+# The local provider holds no folder, so the probe cannot quit early before
+# reaching the offline one, whatever order the providers are listed in.
+mkdir -p "$offline/hidden" "$root/GoogleDrive-local"
+trap 'chmod 700 "$offline"' EXIT
+chmod 000 "$offline"
+# Answer the flag predicate by name; the unreadable folder models a signed-out
+# provider whose listing fails if find enters it.
+cat > "$HOME/find" <<'SCRIPT'
+#!/bin/bash
+args=()
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "-flags" && "$2" == "+dataless" ]]; then
+        args+=(-name AOffline-provider)
+        shift 2
+    else
+        args+=("$1")
+        shift
+    fi
+done
+exec /usr/bin/find "${args[@]}"
+SCRIPT
+chmod +x "$HOME/find"
+FIND_BSD="$HOME/find"
+
+_MOLE_FIND_KNOWS_DATALESS=yes
+project_cache_root_is_walkable "$root" || { echo "PRUNED_PROBE_FAILED"; exit 1; }
+
+# Without the flag the probe enters the provider and fails, as before.
+_MOLE_FIND_KNOWS_DATALESS=no
+if project_cache_root_is_walkable "$root"; then
+    echo "UNPRUNED_PROBE_PASSED"
+    exit 1
+fi
+printf 'PROBE_PRUNED\n'
+EOF
+
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *PROBE_PRUNED* ]]
 }
 
 @test "scan_project_cache_root prunes provider temp folders but keeps readable CloudStorage projects (#1988)" {

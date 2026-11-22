@@ -3078,6 +3078,66 @@ EOF
     [[ "$output" != *"UNEXPECTED_LAUNCHCTL"* ]]
 }
 
+@test "clean_orphaned_system_services adds the removed services to the run totals (#2045)" {
+    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" MOLE_TEST_MODE=0 MOLE_TEST_NO_AUTH=0 DRY_RUN=false MOLE_DRY_RUN=0 /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/apps.sh"
+
+start_section_spinner() { :; }
+stop_section_spinner() { :; }
+note_activity() { :; }
+debug_log() { :; }
+bundle_has_installed_app() { return 1; }
+safe_sudo_remove() { return 0; }
+
+tmp_dir="$(mktemp -d)"
+tmp_helper="$tmp_dir/org.amnezia.awg.plist"
+cat > "$tmp_helper" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.amnezia.awg</string>
+    <key>Program</key>
+    <string>$tmp_dir/missing-binary</string>
+</dict>
+</plist>
+PLIST
+
+sudo() {
+  if [[ "$1" == "-n" && "$2" == "true" ]]; then
+    return 0
+  fi
+  [[ "${1:-}" == "-n" ]] && shift
+  if [[ "$1" == "find" ]]; then
+    case "$2" in
+      /Library/LaunchDaemons) printf '%s\0' "$tmp_helper" ;;
+      *) : ;;
+    esac
+    return 0
+  fi
+  if [[ "$1" == "du" ]]; then
+    echo "4 $tmp_helper"
+    return 0
+  fi
+  if [[ "$1" == "launchctl" ]]; then echo "UNEXPECTED_LAUNCHCTL"; return 99; fi
+  command "$@"
+}
+
+files_cleaned=0
+total_size_cleaned=0
+total_items=0
+clean_orphaned_system_services
+printf 'TOTALS=%s:%s:%s\n' "$files_cleaned" "$total_size_cleaned" "$total_items"
+EOF
+
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *"Orphaned services · cleaned 1"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"TOTALS=1:4:1"* ]] || { echo "$output"; return 1; }
+}
+
 @test "clean_orphaned_system_services keeps a live helper app LaunchDaemon loaded (#1447)" {
     # Chrome Remote Desktop installs its broker inside a standalone .app under
     # PrivilegedHelperTools rather than inside a parent app in /Applications.
@@ -3239,6 +3299,7 @@ note_activity() { :; }
 debug_log() { :; }
 should_protect_path() { return 1; }
 bundle_has_installed_app() { return 1; }
+mole_spotlight_answers_bundle_queries() { return 0; }
 _privileged_helper_is_developer_id_signed() {
     printf 'SIGNATURE_CHECK:%s\n' "$1"
     [[ "$SIGNED" == "1" ]]
@@ -3288,6 +3349,95 @@ EOF
     done
 }
 
+@test "clean_orphaned_system_services offers no live helper when Spotlight cannot answer" {
+    # The resolver walks only the known app roots, so a helper's app installed
+    # elsewhere (a Downloads copy, an external disk) is found only through
+    # Spotlight. A Spotlight that cannot find Finder (indexing off) proves
+    # nothing by missing, so a signed live helper stays, through the launchd
+    # plist and straight from the helper root; Mole Mac's root helper refuses
+    # the same way. The same fixture with Spotlight answering removes both, so
+    # the refusal cannot pass by never reaching the question.
+    local spotlight
+    for spotlight in no yes; do
+    run env SPOTLIGHT="$spotlight" HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" MOLE_TEST_MODE=0 MOLE_TEST_NO_AUTH=0 \
+        DRY_RUN=false MOLE_DRY_RUN=0 /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/apps.sh"
+
+start_section_spinner() { :; }
+stop_section_spinner() { :; }
+note_activity() { :; }
+debug_log() { printf 'DEBUG:%s\n' "$*"; }
+should_protect_path() { return 1; }
+bundle_has_installed_app() { return 1; }
+mole_spotlight_answers_bundle_queries() {
+    printf 'SPOTLIGHT_ASKED\n'
+    [[ "$SPOTLIGHT" == yes ]]
+}
+_privileged_helper_is_developer_id_signed() { return 0; }
+_privileged_helper_root_exists() { return 0; }
+
+tmp_dir=$(mktemp -d)
+tmp_plist="$tmp_dir/com.vendor.live.plist"
+helper_binary="/Library/PrivilegedHelperTools/com.vendor.live.helper"
+/usr/libexec/PlistBuddy -c "Add :Program string $helper_binary" "$tmp_plist" > /dev/null 2>&1
+bare_helper="$tmp_dir/com.vendor.bare.helper"
+touch "$bare_helper"
+
+_mole_materialize_bounded_sudo_find() {
+    if [[ "$3" == "/Library/LaunchDaemons" ]]; then
+        printf '%s\0' "$tmp_plist" > "$1"
+    elif [[ "$3" == "/Library/PrivilegedHelperTools" ]]; then
+        printf '%s\0' "$bare_helper" > "$1"
+    else
+        : > "$1"
+    fi
+}
+sudo() {
+    [[ "${1:-}" == "-n" ]] && shift
+    case "${1:-}" in
+        true) return 0 ;;
+        test)
+            [[ "${2:-}" == "-e" && "${3:-}" == "$helper_binary" ]] || return 1
+            return 0
+            ;;
+        find)
+            case "${2:-}" in
+                /Library/PrivilegedHelperTools) printf '%s\0' "$bare_helper" ;;
+                *) : ;;
+            esac
+            return 0
+            ;;
+        /usr/libexec/PlistBuddy | /usr/bin/stat) command "$@" ;;
+        du) printf '4\n' ;;
+        launchctl) return 0 ;;
+        *) return 0 ;;
+    esac
+}
+safe_sudo_remove() {
+    printf 'REMOVE:%s\n' "$1"
+    return 0
+}
+
+clean_orphaned_system_services
+EOF
+    [ "$status" -eq 0 ] || { echo "$spotlight: $output"; return 1; }
+    [[ $(grep -c SPOTLIGHT_ASKED <<< "$output") -eq 1 ]] || { echo "$spotlight: Spotlight asked other than once: $output"; return 1; }
+    # The scan and the removal recheck each ask; "Found" is the scan's count,
+    # so a scan that offers a live helper fails even though the recheck
+    # would still keep it.
+    if [[ "$spotlight" == no ]]; then
+        [[ "$output" != *"DEBUG:Found "* ]] || { echo "the scan offered a live helper Spotlight could not rule out: $output"; return 1; }
+        [[ "$output" != *"REMOVE:"* ]] || { echo "offered a live helper Spotlight could not rule out: $output"; return 1; }
+    else
+        [[ "$output" == *"DEBUG:Found 2 orphaned system services"* ]] || { echo "the scan did not offer both rows: $output"; return 1; }
+        [[ "$output" == *"REMOVE:"*"com.vendor.live.plist"* ]] || { echo "the launchd row never reached the question: $output"; return 1; }
+        [[ "$output" == *"REMOVE:"*"com.vendor.bare.helper"* ]] || { echo "the bare helper never reached the question: $output"; return 1; }
+    fi
+    done
+}
+
 @test "clean_orphaned_system_services lists a bare helper only when it is Developer ID signed" {
     # Straight from PrivilegedHelperTools: an unsigned binary and a helper-root
     # .plist beside one stay; a signed vendor helper whose app is gone is
@@ -3305,6 +3455,7 @@ note_activity() { :; }
 debug_log() { :; }
 should_protect_path() { return 1; }
 bundle_has_installed_app() { return 1; }
+mole_spotlight_answers_bundle_queries() { return 0; }
 _privileged_helper_is_developer_id_signed() { [[ "$1" == *com.vendor.gone.helper ]]; }
 _privileged_helper_root_exists() { return 0; }
 
@@ -3428,6 +3579,7 @@ note_activity() { :; }
 debug_log() { :; }
 should_protect_path() { return 1; }
 bundle_has_installed_app() { return 1; }
+mole_spotlight_answers_bundle_queries() { return 0; }
 
 tmp_dir=$(mktemp -d)
 tmp_plist="$tmp_dir/com.example.helper.plist"
@@ -4442,6 +4594,68 @@ EOF
 		echo "$output"
 		return 1
 	}
+}
+
+@test "installed-app scan reads a flat bundle with its executable and fails closed on other flat layouts (#2044)" {
+    run env HOME="$HOME/flat-bundle-scan" PROJECT_ROOT="$PROJECT_ROOT" MOLE_TEST_MODE=1 /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/apps.sh"
+app="$HOME/Applications/NetBird UI.app"
+mkdir -p "$app"
+cat > "$app/Info.plist" <<'PLIST'
+<?xml version="1.0"?>
+<plist version="1.0"><dict>
+    <key>CFBundleIdentifier</key><string>io.netbird.client</string>
+    <key>CFBundleExecutable</key><string>netbird-ui</string>
+</dict></plist>
+PLIST
+printf '#!/bin/sh\n' > "$app/netbird-ui"
+chmod +x "$app/netbird-ui"
+# Limit app enumeration to the fixture even when the host has NetBird installed.
+find() {
+    case "$1" in
+        "$HOME/Applications"|*/LaunchAgents) /usr/bin/find "$@" ;;
+    esac
+}
+expect_scan_failure() {
+    rm -f "$HOME/.cache/mole/installed_apps_cache"
+    if scan_installed_apps "$HOME/$1.txt"; then
+        echo "NOT_FAILED_$1"
+        exit 1
+    fi
+    [[ "$MOLE_APP_SCAN_FAILURE_DETAIL" == "~/Applications/NetBird UI.app" ]] || exit 1
+}
+scan_installed_apps "$HOME/installed.txt"
+grep -Fxq io.netbird.client "$HOME/installed.txt" || exit 1
+
+# The executable has to be a real file next to the plist, not a link into
+# somewhere else, which is how a PlayCover alias is built.
+mv "$app/netbird-ui" "$HOME/netbird-ui"
+ln -s "$HOME/netbird-ui" "$app/netbird-ui"
+expect_scan_failure linked-executable
+rm "$app/netbird-ui"
+expect_scan_failure missing-executable
+# A path in CFBundleExecutable could hide a linked folder from the link check.
+mkdir -p "$HOME/elsewhere"
+cp "$HOME/netbird-ui" "$HOME/elsewhere/netbird-ui"
+ln -s "$HOME/elsewhere" "$app/sub"
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable sub/netbird-ui" "$app/Info.plist"
+expect_scan_failure executable-path
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable netbird-ui" "$app/Info.plist"
+rm "$app/sub"
+mv "$HOME/netbird-ui" "$app/netbird-ui"
+
+# A Contents/ directory means a normal bundle whose plist is missing.
+mkdir "$app/Contents"
+expect_scan_failure with-contents
+rmdir "$app/Contents"
+
+# A root plist that does not parse may hide a real id.
+printf 'not a plist' > "$app/Info.plist"
+expect_scan_failure unreadable
+EOF
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
 
 @test "installed-app scan skips an iOS app with a dangling WrappedBundle symlink" {

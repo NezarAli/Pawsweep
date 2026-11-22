@@ -3,7 +3,7 @@
 <div align="center">
   <h1>Mole</h1>
   <p><b>Mac 深度清理、应用卸载、系统优化、磁盘分析与状态监控，免费开源命令行，另有原生 Mac App</b></p>
-  <p><a href="README.md">English</a> · 中文 · <a href="README_TW.md">繁體</a> · <a href="README_JA.md">日本語</a> · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
+  <p><a href="README.md">English</a> · 中文 · <a href="README_TW.md">繁體</a> · <a href="README_JA.md">日本語</a> · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_PT-BR.md">Português</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
   <a href="https://github.com/tw93/mole/stargazers"><img src="https://img.shields.io/github/stars/tw93/mole?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/tw93/mole/releases"><img src="https://img.shields.io/github/v/release/tw93/mole?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL_v3-blue.svg?style=flat-square" alt="License"></a>
@@ -105,7 +105,7 @@ mo analyze /private/tmp      # 仅查看临时目录（不自动清理）
 想装特定版本就传入 [Releases 页面](https://github.com/tw93/mole/releases) 里的任意 Tag，带不带开头的 `V` 都行，想跟开发分支就传 `main`：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.51.0
+curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.73.0
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- main
 ```
 
@@ -247,7 +247,7 @@ D choose personal data
 
 ======================================================================
 Uninstall complete
-Removed 1 app, freed 4.20GB: Photoshop 2024
+Removed 1 app · 4.20GB: Photoshop 2024
 ======================================================================
 ```
 
@@ -514,4 +514,4 @@ Raycast 装好后要手动设置一次：
 
 ## 开源协议
 
-Mole 基于 GPL-3.0 协议开源（详见 [LICENSE](LICENSE)），任何修改与分发的版本需要保持相同的开源协议，如果你将 Mole 分叉为其他独立产品，请使用不同名称并注明出处。[Mole for Mac](https://mole.fit) 是独立的闭源 App，Mole 会长期维护下去。
+Mole 基于 GPL-3.0 协议开源（详见 [LICENSE](LICENSE)），任何修改与分发的版本需要保持相同的开源协议，如果你将 Mole 分叉为其他独立产品，请使用不同名称并注明出处，详见 [TRADEMARK.md](TRADEMARK.md)。[Mole for Mac](https://mole.fit) 是独立的闭源 App，Mole 会长期维护下去。

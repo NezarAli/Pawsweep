@@ -3,7 +3,7 @@
 <div align="center">
   <h1>Mole</h1>
   <p><b>Deep clean, uninstall, optimize, analyze disk and monitor your Mac. Free open-source CLI, plus a Mac app.</b></p>
-  <p>English · <a href="README_CN.md">中文</a> · <a href="README_TW.md">繁體</a> · <a href="README_JA.md">日本語</a> · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
+  <p>English · <a href="README_CN.md">中文</a> · <a href="README_TW.md">繁體</a> · <a href="README_JA.md">日本語</a> · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_PT-BR.md">Português</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
   <a href="https://github.com/tw93/mole/stargazers"><img src="https://img.shields.io/github/stars/tw93/mole?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/tw93/mole/releases"><img src="https://img.shields.io/github/v/release/tw93/mole?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL_v3-blue.svg?style=flat-square" alt="License"></a>
@@ -105,7 +105,7 @@ mo analyze /private/tmp      # Review user-owned temporary directories
 To install a specific release, pass any tag from the [releases page](https://github.com/tw93/mole/releases), with or without its leading `V`. To track the development branch instead, pass `main`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.51.0
+curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.73.0
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- main
 ```
 
@@ -247,7 +247,7 @@ D choose personal data
 
 ======================================================================
 Uninstall complete
-Removed 1 app, freed 4.20GB: Photoshop 2024
+Removed 1 app · 4.20GB: Photoshop 2024
 ======================================================================
 ```
 
@@ -522,4 +522,4 @@ These lovely people already did 🐱
 
 ## License
 
-Mole is open source under GPL-3.0; see [LICENSE](LICENSE). Any modified version you share must remain under the same license. If you fork Mole, please use a distinct name and credit Mole as the upstream source. [Mole for Mac](https://mole.fit) is a separate proprietary app, and Mole is here for the long run.
+Mole is open source under GPL-3.0; see [LICENSE](LICENSE). Any modified version you share must remain under the same license. If you fork Mole, please use a distinct name and credit Mole as the upstream source; see [TRADEMARK.md](TRADEMARK.md). [Mole for Mac](https://mole.fit) is a separate proprietary app, and Mole is here for the long run.

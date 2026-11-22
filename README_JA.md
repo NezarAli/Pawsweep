@@ -3,7 +3,7 @@
 <div align="center">
   <h1>Mole</h1>
   <p><b>Macのディープクリーン、アプリアンインストール、システム最適化、ディスク分析、ステータス監視。無料のオープンソースCLIと、ネイティブMacアプリ。</b></p>
-  <p><a href="README.md">English</a> · <a href="README_CN.md">中文</a> · <a href="README_TW.md">繁體</a> · 日本語 · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
+  <p><a href="README.md">English</a> · <a href="README_CN.md">中文</a> · <a href="README_TW.md">繁體</a> · 日本語 · <a href="README_KR.md">한국어</a> · <a href="README_DE.md">Deutsch</a> · <a href="README_FR.md">Français</a> · <a href="README_PL.md">Polski</a> · <a href="README_PT-BR.md">Português</a> · <a href="README_UA.md">Українська</a> · <a href="README_RU.md">Русский</a></p>
   <a href="https://github.com/tw93/mole/stargazers"><img src="https://img.shields.io/github/stars/tw93/mole?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/tw93/mole/releases"><img src="https://img.shields.io/github/v/release/tw93/mole?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL_v3-blue.svg?style=flat-square" alt="License"></a>
@@ -105,7 +105,7 @@ mo analyze /private/tmp      # 一時ディレクトリの確認（自動削除�
 特定バージョンをインストールする場合は、[Releasesページ](https://github.com/tw93/mole/releases) のタグを指定してください（先頭の `V` はあってもなくても構いません）。開発ブランチを利用する場合は `main` を指定します：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.51.0
+curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- 1.73.0
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash -s -- main
 ```
 
@@ -247,7 +247,7 @@ D choose personal data
 
 ======================================================================
 Uninstall complete
-Removed 1 app, freed 4.20GB: Photoshop 2024
+Removed 1 app · 4.20GB: Photoshop 2024
 ======================================================================
 ```
 
@@ -514,4 +514,4 @@ PAPAYA 電腦教室 による [Moleチュートリアル動画](https://www.yout
 
 ## ライセンス
 
-MoleはGPL-3.0ライセンスのもとでオープンソース公開されています。詳細は [LICENSE](LICENSE) をご覧ください。変更したバージョンを共有する場合は、同じライセンスのままにする必要があります。Moleをフォークして別の製品にする場合は、別の名前を使い、Moleを元のプロジェクトとして明記してください。[Mole for Mac](https://mole.fit) は独立したプロプライエタリなアプリです。Moleはこれからも長く続けていきます。
+MoleはGPL-3.0ライセンスのもとでオープンソース公開されています。詳細は [LICENSE](LICENSE) をご覧ください。変更したバージョンを共有する場合は、同じライセンスのままにする必要があります。Moleをフォークして別の製品にする場合は、別の名前を使い、Moleを元のプロジェクトとして明記してください。詳細は [TRADEMARK.md](TRADEMARK.md) をご覧ください。[Mole for Mac](https://mole.fit) は独立したプロプライエタリなアプリです。Moleはこれからも長く続けていきます。

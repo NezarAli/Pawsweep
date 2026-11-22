@@ -3384,6 +3384,21 @@ export XDG_CACHE_HOME="$HOME/.cache"
 export TERM="dumb"
 PURGE_SEARCH_PATHS=("$HOME/www")
 
+# Fixed discovery, sizes and activity: host probes must not drop a row.
+scan_purge_targets() {
+	[[ "\$1" == "$HOME/www" ]] || return 1
+	printf '%s\n' "$HOME/www/alpha/node_modules" "$HOME/www/beta/node_modules" > "\$2"
+	printf '%s\n' "$HOME/www/alpha/node_modules" "$HOME/www/beta/node_modules" > "\$3"
+}
+get_dir_size_kb() {
+	case "\$1" in
+		"$HOME/www/alpha/node_modules") echo 5 ;;
+		"$HOME/www/beta/node_modules") echo 200 ;;
+		*) return 1 ;;
+	esac
+}
+is_recently_modified() { _PURGE_ACTIVITY_STATE=old; return 1; }
+
 # Override the interactive selector: dump the full-path array to the capture
 # file then cancel (return 1) so nothing is deleted.
 select_purge_categories() {
@@ -3433,6 +3448,21 @@ mkdir -p "$HOME/.cache/mole"
 export XDG_CACHE_HOME="$HOME/.cache"
 export TERM="dumb"
 PURGE_SEARCH_PATHS=("$HOME/www")
+
+# Fixed discovery, sizes and activity: host probes must not drop a row.
+scan_purge_targets() {
+	[[ "\$1" == "$HOME/www" ]] || return 1
+	printf '%s\n' "$HOME/www/alpha/node_modules" "$HOME/www/beta/node_modules" > "\$2"
+	printf '%s\n' "$HOME/www/alpha/node_modules" "$HOME/www/beta/node_modules" > "\$3"
+}
+get_dir_size_kb() {
+	case "\$1" in
+		"$HOME/www/alpha/node_modules") echo 5 ;;
+		"$HOME/www/beta/node_modules") echo 200 ;;
+		*) return 1 ;;
+	esac
+}
+is_recently_modified() { _PURGE_ACTIVITY_STATE=old; return 1; }
 
 select_purge_categories() {
 	echo "SIZES=\${PURGE_CATEGORY_SIZES:-}" > "$capture_file"
@@ -3492,12 +3522,13 @@ SCRIPT
 }
 
 @test "sort: project groups use aggregate size before artifact size" {
-	mkdir -p "$HOME/www/alpha/node_modules" "$HOME/www/alpha/.venv"
+	# beta is created first, so its project identity groups first without the size sort.
 	mkdir -p "$HOME/www/beta/node_modules"
-	echo '{}' > "$HOME/www/alpha/package.json"
+	mkdir -p "$HOME/www/zeta/node_modules" "$HOME/www/zeta/.venv"
+	echo '{}' > "$HOME/www/zeta/package.json"
 	echo '{}' > "$HOME/www/beta/package.json"
-	dd if=/dev/zero of="$HOME/www/alpha/node_modules/data" bs=1024 count=130 2>/dev/null
-	dd if=/dev/zero of="$HOME/www/alpha/.venv/data" bs=1024 count=110 2>/dev/null
+	dd if=/dev/zero of="$HOME/www/zeta/node_modules/data" bs=1024 count=130 2>/dev/null
+	dd if=/dev/zero of="$HOME/www/zeta/.venv/data" bs=1024 count=110 2>/dev/null
 	dd if=/dev/zero of="$HOME/www/beta/node_modules/data" bs=1024 count=200 2>/dev/null
 
 	local capture_file script_file
@@ -3512,6 +3543,23 @@ mkdir -p "$HOME/.cache/mole"
 export XDG_CACHE_HOME="$HOME/.cache"
 export TERM="dumb"
 PURGE_SEARCH_PATHS=("$HOME/www")
+
+# Fixed discovery, sizes and activity: host probes must not drop a row.
+# zeta sorts after beta by name and .venv is listed first, so both sorts must act.
+scan_purge_targets() {
+	[[ "\$1" == "$HOME/www" ]] || return 1
+	printf '%s\n' "$HOME/www/beta/node_modules" "$HOME/www/zeta/.venv" "$HOME/www/zeta/node_modules" > "\$2"
+	printf '%s\n' "$HOME/www/beta/node_modules" "$HOME/www/zeta/.venv" "$HOME/www/zeta/node_modules" > "\$3"
+}
+get_dir_size_kb() {
+	case "\$1" in
+		"$HOME/www/zeta/node_modules") echo 130 ;;
+		"$HOME/www/zeta/.venv") echo 110 ;;
+		"$HOME/www/beta/node_modules") echo 200 ;;
+		*) return 1 ;;
+	esac
+}
+is_recently_modified() { _PURGE_ACTIVITY_STATE=old; return 1; }
 
 select_purge_categories() {
 	local i=0
@@ -3536,8 +3584,8 @@ SCRIPT
 	path2=$(grep '^PATH\[2\]=' "$capture_file" | cut -d= -f2-)
 	rm -f "$capture_file"
 
-	[[ "$path0" == *"alpha/node_modules"* ]] || return 1
-	[[ "$path1" == *"alpha/.venv"* ]] || return 1
+	[[ "$path0" == *"zeta/node_modules"* ]] || return 1
+	[[ "$path1" == *"zeta/.venv"* ]] || return 1
 	[[ "$path2" == *"beta/node_modules"* ]] || return 1
 }
 
@@ -3597,12 +3645,11 @@ SCRIPT
 }
 
 @test "sort: cloud marker stays aligned across menu and full-path arrays" {
-	mkdir -p "$HOME/www/local-project/node_modules"
-	mkdir -p "$HOME/Library/CloudStorage/TestProvider/cloud-project/node_modules"
-	echo '{}' > "$HOME/www/local-project/package.json"
-	echo '{}' > "$HOME/Library/CloudStorage/TestProvider/cloud-project/package.json"
-	dd if=/dev/zero of="$HOME/www/local-project/node_modules/data" bs=1024 count=200 2>/dev/null
-	dd if=/dev/zero of="$HOME/Library/CloudStorage/TestProvider/cloud-project/node_modules/data" bs=1024 count=5 2>/dev/null
+	local local_artifact="$HOME/www/local-project/node_modules"
+	local cloud_artifact="$HOME/Library/CloudStorage/TestProvider/cloud-project/node_modules"
+	mkdir -p "$local_artifact" "$cloud_artifact"
+	echo '{}' > "${local_artifact%/*}/package.json"
+	echo '{}' > "${cloud_artifact%/*}/package.json"
 
 	local capture_file script_file
 	capture_file=$(mktemp "$HOME/sort_cloud_capture.XXXXXX")
@@ -3611,11 +3658,31 @@ SCRIPT
 	cat > "$script_file" << SCRIPT
 set -euo pipefail
 source "$PROJECT_ROOT/lib/clean/project.sh"
-purge_node_modules_is_protected() { return 1; }
 mkdir -p "$HOME/.cache/mole"
 export XDG_CACHE_HOME="$HOME/.cache"
 export TERM="dumb"
 PURGE_SEARCH_PATHS=("$HOME/www" "$HOME/Library/CloudStorage")
+
+# Give the menu two verified candidates so host probes cannot drop a row.
+# CloudStorage sorts before www at discovery, so the larger local row must move first.
+scan_purge_targets() {
+	local artifact
+	case "\$1" in
+		"$HOME/www") artifact="$local_artifact" ;;
+		"$HOME/Library/CloudStorage") artifact="$cloud_artifact" ;;
+		*) return 1 ;;
+	esac
+	printf '%s\n' "\$artifact" > "\$2"
+	printf '%s\n' "\$artifact" > "\$3"
+}
+get_dir_size_kb() {
+	case "\$1" in
+		"$local_artifact") echo 200 ;;
+		"$cloud_artifact") echo 5 ;;
+		*) return 1 ;;
+	esac
+}
+is_recently_modified() { _PURGE_ACTIVITY_STATE=old; return 1; }
 
 select_purge_categories() {
 	local i=0
@@ -4089,7 +4156,9 @@ EOF_REPEAT_TERM
 
 
 @test "activity batch parent TERM drains real timeout probes and their children" {
-    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF_PROCESS'
+    local fixture
+    fixture=$(mktemp -d "$HOME/activity-term.XXXXXX")
+    run env HOME="$fixture" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc <<'EOF_PROCESS'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/clean/project.sh"
 purge_node_modules_is_protected() { return 1; }
@@ -4102,40 +4171,44 @@ PURGE_SEARCH_PATHS=("$HOME/www")
 scan_purge_targets() { printf '%s\n' "$HOME/www/"{a-first,b-peer,c-later}/node_modules > "$2"; }
 purge_artifact_has_authored_content() { return 1; }
 get_optimal_parallel_jobs() { echo 2; }
-get_dir_size_kb() { echo SIZE_PHASE_REACHED >&2; echo 1; }
-safe_remove() { echo UNEXPECTED_REMOVE; }
+get_dir_size_kb() { : > "$HOME/activity-size-reached"; echo 1; }
+safe_remove() { : > "$HOME/activity-remove-reached"; }
 register_temp_file() { printf '%s\n' "$1" >> "$HOME/activity-results"; }
 mkdir -p "$HOME/activity-bin"
 cat > "$HOME/activity-bin/find" <<'EOF_FIND'
 #!/bin/bash
-[[ "$1" != *c-later* ]] || { echo LATER_PROBE_REACHED >&2; exit 2; }
+if [[ "$1" == */c-later/node_modules ]]; then
+    : > "$HOME/activity-later-probed"
+    exit 0
+fi
 sleep 10 & child=$!
-printf '%s %s\n' "$$" "$child" >> "$HOME/activity-processes"
 cleanup() { kill "$child" 2>/dev/null || true; wait "$child" 2>/dev/null || true; }
 trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 130' INT
+printf '%s %s\n' "$$" "$child" >> "$HOME/activity-processes"
+# Signal from the bounded probe once both children are ready, without
+# charging the discovery and protection phases against a sender deadline.
+if [[ "$1" == */b-peer/node_modules ]]; then
+    until [[ -f "$HOME/activity-first-ready" ]]; do sleep 0.02; done
+    kill -TERM "$PURGE_ACTIVITY_TEST_PID"
+else
+    : > "$HOME/activity-first-ready"
+fi
 wait "$child"
 EOF_FIND
 chmod +x "$HOME/activity-bin/find"
 export PATH="$HOME/activity-bin:$PATH" MOLE_DRY_RUN=1
 export MO_PURGE_ACTIVITY_TIMEOUT_SEC=1 MO_PURGE_ACTIVITY_TOTAL_TIMEOUT_SEC=3
+export PURGE_ACTIVITY_TEST_PID=$$
 trap 'echo CALLER_TERM' TERM
 caller_trap=$(trap -p TERM)
-(
-    for ((n=0; n<100; n++)); do
-        if [[ -f "$HOME/activity-processes" && $(wc -l < "$HOME/activity-processes") -ge 2 ]]; then
-            kill -TERM "$$"
-            exit 0
-        fi
-        sleep 0.02
-    done
-    exit 1
-) & sender=$!
 result=0
 clean_project_artifacts </dev/null || result=$?
-wait "$sender"
+printf 'RESULT=%s OUTCOME=%s\n' "$result" "$PURGE_RUN_OUTCOME"
 [[ "$result" -eq 143 && "$PURGE_RUN_OUTCOME" == cancelled ]] || exit 1
 [[ "$(trap -p TERM)" == "$caller_trap" ]] || exit 1
+[[ -f "$HOME/activity-processes" && $(wc -l < "$HOME/activity-processes") -eq 2 ]] || exit 1
+[[ ! -e "$HOME/activity-later-probed" && ! -e "$HOME/activity-size-reached" && ! -e "$HOME/activity-remove-reached" ]] || exit 1
 while read -r probe_pid child_pid; do
     ! kill -0 "$probe_pid" 2>/dev/null || exit 1
     ! kill -0 "$child_pid" 2>/dev/null || exit 1
@@ -4145,7 +4218,7 @@ printf 'DRAINED_REAL_PROBES\n'
 EOF_PROCESS
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
     [[ "$output" == *DRAINED_REAL_PROBES* ]] || return 1
-    [[ "$output" != *SIZE_PHASE_REACHED* && "$output" != *LATER_PROBE_REACHED* && "$output" != *UNEXPECTED_REMOVE* && "$output" != *CALLER_TERM* ]] || return 1
+    [[ "$output" != *CALLER_TERM* ]] || return 1
 }
 
 
